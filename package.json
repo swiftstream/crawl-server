@@ -1,0 +1,31 @@
+{
+  "name": "crawl-server",
+  "description": "Efficient SEO-focused server for Wasm-generated pages",
+  "version": "1.0.0",
+  "author": "Mikhail Isaev <me@mihaelisaev.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swiftstream/crawl-server.git"
+  },
+  "homepage": "https://swift.stream",
+  "bugs": {
+    "url": "https://github.com/swiftstream/crawl-server/issues"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": ["seo", "crawler", "webassembly", "wasm", "renderer", "server", "swift", "swift-wasm", "swifweb", "swiftstream"],
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "dependencies": {
+    "fastify": "5.0.0",
+    "jsdom": "25.0.1",
+    "@wasmer/wasi": "0.12.0",
+    "@wasmer/wasmfs": "0.12.0",
+    "javascript-kit-swift": "0.20.0"
+  }
+}
