@@ -12,10 +12,10 @@ It is designed to be used either as a standalone server or as an imported module
 
 To run as a standalone server, configure it with environment variables:
 
-- **`SS_PATH_TO_WASM`**: Path to the WebAssembly application file.
-- **`SS_SERVER_PORT`**: Port for the server to listen on.
-- **`SS_DEBUG`**: Set to `TRUE` to enable debug logs.
-- **`SS_CHILD_PROCESSES`**: Number of concurrent WebAssembly instances to spawn (default: 4).
+- **`CS_PATH_TO_WASM`**: Path to the WebAssembly application file.
+- **`CS_SERVER_PORT`**: Port for the server to listen on.
+- **`CS_DEBUG`**: Set to `TRUE` to enable debug logs.
+- **`CS_CHILD_PROCESSES`**: Number of concurrent WebAssembly instances to spawn (default: 4).
 
 ### Module
 

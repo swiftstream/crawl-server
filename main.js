@@ -27,8 +27,8 @@
 import { start } from './server.js'
 
 start(
-    process.env.SS_PATH_TO_WASM,
-    process.env.SS_SERVER_PORT,
-    process.env.SS_DEBUG,
-    process.env.SS_CHILD_PROCESSES
+    process.env.CS_PATH_TO_WASM,
+    process.env.CS_SERVER_PORT,
+    process.env.CS_DEBUG,
+    process.env.CS_CHILD_PROCESSES
 )

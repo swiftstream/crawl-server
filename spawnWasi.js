@@ -40,7 +40,7 @@ export async function spawnWasi(wasmBytes, path, search, serverPort, debugLogs, 
         const wasmFs = new WasmFs()
         if (debugLogs) console.log(`WASI: Instantiated WasmFs in ${(new Date()).getMilliseconds() - starTime}ms`)
         // Checking if wasm file was built for `wasip1-threads`
-        const wasip1Threads = process.env.SS_WASIP1_THREADS != undefined
+        const wasip1Threads = process.env.CS_WASIP1_THREADS != undefined
         // Output stdout and stderr to console
         const originalWriteSync = wasmFs.fs.writeSync
         wasmFs.fs.writeSync = (fd, buffer, offset, length, position) => {
