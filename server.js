@@ -214,7 +214,6 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
                             case 'restart':
                                 if (debugLogs) console.log('SERVER: Got restart event')
                                 var starTime = debugLogs ? (new Date()).getMilliseconds() : undefined
-                                child.mike = "hero"
                                 // Kill child with previous wasm instance
                                 killChildProcess(child)
                                 if (debugLogs) console.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
