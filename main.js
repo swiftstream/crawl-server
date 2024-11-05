@@ -27,14 +27,25 @@
 import { start } from './server.js'
 
 if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
-    const started = start(
+    const started = await start(
         process.env.CS_PATH_TO_WASM,
         process.env.CS_SERVER_PORT,
         process.env.CS_DEBUG,
         process.env.CS_CHILD_PROCESSES
     )
-    if (!started) process.exit(1)
+    if (started.errorCode) {
+        switch (started.errorCode) {
+            case 0:
+                process.exit(10) // Path to WASM is undefined
+            case 1:
+                process.exit(20) // Unable to start. Wasm file not found.
+            case 2:
+                process.exit(30) // Fastify failed to start.
+            default:
+                process.exit(1) // Unexpected state.  
+        }
+    }
 }
-export function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
-    return start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler)
+export async function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
+    return await start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler)
 }

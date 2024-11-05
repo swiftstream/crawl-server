@@ -40,15 +40,15 @@ import { createHash } from 'crypto'
 // Cold start of a new process with a WebAssembly instance takes about 300ms to respond.
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
-export function start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
+export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
     if (pathToWasm === undefined) {
         console.error('SERVER: Path to WASM is undefined.')
-        return undefined
+        return { errorCode: 0 }
     }
     if (debugLogs) console.log(`SERVER: Path to wasm: ${pathToWasm}`)
     if (!fs.existsSync(pathToWasm)) {
         if (debugLogs) console.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
-        return undefined
+        return { errorCode: 1 }
     }
     const fastify = Fastify({ logger: debugLogs })
 
@@ -361,25 +361,29 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses, state
                 situation: 'server_started',
                 description: text
             })
+            return true
         } catch (err) {
             fastify.log.error(err)
-            return undefined
+            return false
         }
     }
     // Call async start
-    start()
-    return {
-        stop: (handler) => {
-            fastify.close(handler)
-            for (let i = 0; i < childProcessPool.length; i++) {
-                const child = childProcessPool[i]
-                child.kill('SIGTERM')
+    if (await start()) {
+        return {
+            stop: (handler) => {
+                fastify.close(handler)
+                for (let i = 0; i < childProcessPool.length; i++) {
+                    const child = childProcessPool[i]
+                    child.kill('SIGTERM')
+                }
+                if (stateHandler) updateState({
+                    state: 'stopped',
+                    situation: 'fulfilled_stop_call',
+                    description: 'Gracefully stopped.'
+                })
             }
-            if (stateHandler) updateState({
-                state: 'stopped',
-                situation: 'fulfilled_stop_call',
-                description: 'Gracefully stopped.'
-            })
         }
+    } else {
+        return { errorCode: 2 }
     }
 }
