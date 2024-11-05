@@ -87,6 +87,16 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses, state
             if (index > -1) {
                 childProcessPool.splice(index, 1)
             }
+            if (signal === 'SIGTERM') {
+                const text = 'Stopped child process.'
+                if (debugLogs) console.log(`SERVER: ${text}`)
+                if (stateHandler) updateState({
+                    state: 'stopping',
+                    situation: 'stopped_child_process',
+                    description: text
+                })
+                return
+            }
             if (!child.intentionally) {
                 const disasterCrash = ((new Date()).getMilliseconds() - child.spawnedAt < 5000)
                 const respawnTimeout = disasterCrash ? DISASTER_RESPAWN_TIMEOUT * 1000 : 1
@@ -361,6 +371,15 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses, state
     return {
         stop: (handler) => {
             fastify.close(handler)
+            for (let i = 0; i < childProcessPool.length; i++) {
+                const child = childProcessPool[i]
+                child.kill('SIGTERM')
+            }
+            if (stateHandler) updateState({
+                state: 'stopped',
+                situation: 'fulfilled_stop_call',
+                description: 'Gracefully stopped.'
+            })
         }
     }
 }
