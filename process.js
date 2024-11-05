@@ -26,6 +26,7 @@
 
 import * as fs from 'fs'
 import { spawnWasi } from './spawnWasi.js'
+import { exit } from 'process'
 
 process.on('message', async (event) => {
     switch (event.type) {
@@ -47,6 +48,14 @@ process.on('message', async (event) => {
             }
             // Set initial mtime for wasm file
             if (process.wasmMtime === undefined) {
+                if (!pathToWasm) {
+                    console.error(`Path to wasm is undefined.`)
+                    exit(1)
+                }
+                if (!fs.existsSync(pathToWasm)) {
+                    console.error(`Wasm not found at: ${pathToWasm}`)
+                    exit(1)
+                }
                 process.wasmMtime = fs.statSync(pathToWasm).mtime.getTime()
                 process.wasmBytes = fs.readFileSync(pathToWasm)
                 if (debugLogs) console.log('PROCESS: Load wasm instance in child process first time')
