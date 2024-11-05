@@ -41,8 +41,15 @@ import { createHash } from 'crypto'
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
 export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
-    if (!fs.existsSync(pathToWasm)) throw `Unable to start. Wasm file not found.`
+    if (pathToWasm === undefined) {
+        console.error('SERVER: Path to WASM is undefined.')
+        return undefined
+    }
     if (debugLogs) console.log(`SERVER: Path to wasm: ${pathToWasm}`)
+    if (!fs.existsSync(pathToWasm)) {
+        if (debugLogs) console.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
+        return undefined
+    }
     const fastify = Fastify({ logger: debugLogs })
 
     const __filename = fileURLToPath(import.meta.url)
@@ -296,9 +303,14 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
             fastify.log.info(`Server listening on http://localhost:${options.port}`)
         } catch (err) {
             fastify.log.error(err)
-            process.exit(1)
+            return undefined
         }
     }
     // Call async start
     start()
+    return {
+        stop: (handler) => {
+            fastify.close(handler)
+        }
+    }
 }

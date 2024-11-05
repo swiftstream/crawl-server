@@ -27,13 +27,14 @@
 import { start } from './server.js'
 
 if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
-    start(
+    const started = start(
         process.env.CS_PATH_TO_WASM,
         process.env.CS_SERVER_PORT,
         process.env.CS_DEBUG,
         process.env.CS_CHILD_PROCESSES
     )
+    if (!started) process.exit(1)
 }
 export function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses) {
-    start(pathToWasm, port, debugLogs, numberOfChildProcesses)
+    return start(pathToWasm, port, debugLogs, numberOfChildProcesses)
 }
