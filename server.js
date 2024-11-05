@@ -236,6 +236,9 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses, state
                     child.once('message', async (event) => {
                         // Switching event type
                         switch (event.type) {
+                            // Crash
+                            case 'crash':
+                                if (debugLogs) console.log(`PROCESS: Crashed. ${event.reason}`)
                             // Kill the process with old instance and start fresh one
                             case 'restart':
                                 if (debugLogs) console.log('SERVER: Got restart event')
