@@ -41,6 +41,7 @@ import { createHash } from 'crypto'
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
 export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
+    if (!fs.existsSync(pathToWasm)) throw `Unable to start. Wasm file not found.`
     if (debugLogs) console.log(`SERVER: Path to wasm: ${pathToWasm}`)
     const fastify = Fastify({ logger: debugLogs })
 
