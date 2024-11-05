@@ -49,6 +49,8 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
     const __dirname = path.dirname(__filename)
 
     const MAX_CHILD_PROCESSES = numberOfChildProcesses ?? 4
+    const MAX_PENDING_REQUESTS = 1000
+    const DISASTER_RESPAWN_TIMEOUT = 10 // in seconds
 
     // Dictionary to store cached HTML strings
     const cache = {}
@@ -61,6 +63,7 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
     function createChildProcess() {
         const child = fork(path.join(__dirname, 'process.js'))
         child.busy = false
+        child.spawnedAt = (new Date()).getMilliseconds()
         // Handle the exit event to replace dead processes
         child.on('exit', (code, signal) => {
             if (debugLogs) console.log(`SERVER: Child process exited with code ${code} and signal ${signal}`)
@@ -70,10 +73,16 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
                 childProcessPool.splice(index, 1)
             }
             if (!child.intentionally) {
-                // Create a new child process to replace it
-                const newChild = createChildProcess()
-                if (debugLogs) console.log(`SERVER: Replaced dead child process with a new one.`)
-                childProcessPool.push(newChild)
+                const disasterCrash = ((new Date()).getMilliseconds() - child.spawnedAt < 5000)
+                const respawnTimeout = disasterCrash ? DISASTER_RESPAWN_TIMEOUT * 1000 : 1
+                if (disasterCrash)
+                    console.error(`Something went wrong with the wasm instance because it crashed too early. Respawning in ${DISASTER_RESPAWN_TIMEOUT}s.`)
+                setTimeout(() => {
+                    // Create a new child process to replace it
+                    const newChild = createChildProcess()
+                    if (debugLogs) console.log(`SERVER: Replaced dead child process with a new one.`)
+                    childProcessPool.push(newChild)
+                }, respawnTimeout)
             } else {
                 if (debugLogs) console.log(`SERVER: Child process has been killed intentionally.`)
             }
@@ -101,13 +110,17 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
 
     // Find an available child process or await until one becomes free
     function getAvailableChildProcess() {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const availableChild = childProcessPool.find(child => !child.busy)
             if (availableChild) {
                 availableChild.busy = true
                 resolve(availableChild)
             } else {
-                pendingRequests.push(resolve) // Queue the request if all children are busy
+                if (pendingRequests.length >= MAX_PENDING_REQUESTS) {
+                    reject('Too many requests in the queue.') // Protecting itself from leaking.
+                } else {
+                    pendingRequests.push(resolve) // Queue the request if all children are busy
+                }
             }
         })
     }
@@ -134,142 +147,146 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
 
     // Define the wildcard route
     fastify.get('/*', async (request, reply) => {
-        // Skip resource requests
-        // should never go here in production
-        if (['ico', 'css', 'js', 'html', 'json'].includes(request.url.split('.').pop())) {
-            if (debugLogs) console.log(`SERVER: Skipping ${request.url} request`)
-            // should be handled by nginx
-            return reply.code(404).send()
-        }
-
-        const clientETag = request.headers['if-none-match']
-        let clientLastModifiedSince = undefined
-        // Wrap if-modified-since into try/catch to prevent server crash
         try {
-            clientLastModifiedSince = request.headers['if-modified-since'] ? new Date(request.headers['if-modified-since']) : undefined
-        } catch {
-            clientLastModifiedSince = undefined
-        }
-        // Prepare path and search
-        const urlSplit = request.url.split('?')
-        const path = urlSplit[0]
-        const search = urlSplit.length > 1 ? urlSplit[1] : ''
-        
-        // Check if cached content is available and not expired
-        const cached = cache[request.url]
-        const now = Date.now()
-        // Check if expiresAt present and not expired
-        if (cached && cached.expiresAt && cached.expiresAt > now) {
-            // Check if Etag matches the cached one
-            if (clientETag && clientETag == cached.etag) {
-                return reply.code(304).send()
+            // Skip resource requests
+            // should never go here in production
+            if (['ico', 'css', 'js', 'html', 'json'].includes(request.url.split('.').pop())) {
+                if (debugLogs) console.log(`SERVER: Skipping ${request.url} request`)
+                // should be handled by nginx
+                return reply.code(404).send()
             }
-            // Return cached content
-            else {
-                reply.header('ETag', cached.etag)
-                if (cached.lastModifiedAt) {
-                    reply.header('Last-Modified', cached.lastModifiedAt.toUTCString())
+
+            const clientETag = request.headers['if-none-match']
+            let clientLastModifiedSince = undefined
+            // Wrap if-modified-since into try/catch to prevent server crash
+            try {
+                clientLastModifiedSince = request.headers['if-modified-since'] ? new Date(request.headers['if-modified-since']) : undefined
+            } catch {
+                clientLastModifiedSince = undefined
+            }
+            // Prepare path and search
+            const urlSplit = request.url.split('?')
+            const path = urlSplit[0]
+            const search = urlSplit.length > 1 ? urlSplit[1] : ''
+            
+            // Check if cached content is available and not expired
+            const cached = cache[request.url]
+            const now = Date.now()
+            // Check if expiresAt present and not expired
+            if (cached && cached.expiresAt && cached.expiresAt > now) {
+                // Check if Etag matches the cached one
+                if (clientETag && clientETag == cached.etag) {
+                    return reply.code(304).send()
                 }
-                return reply.type('text/html').send(cached.html)
-            }
-        }
-        // Check if wasm file present
-        if (!fs.existsSync(pathToWasm)) {
-            return reply.code(500).send()
-        }
-        const wasmMtime = fs.statSync(pathToWasm).mtime.getTime()
-        // Cached content is missing or expired
-        // so let's get a child process to retrieve the content
-        const child = await getAvailableChildProcess()
-        // Method to work with child process
-        async function workWithChild(child) {
-            // Request the child to generate HTML for this route path
-            return new Promise((resolve) => {
-                // Listening for event from the child process
-                child.once('message', async (event) => {
-                    // Switching event type
-                    switch (event.type) {
-                        // Kill the process with old instance and start fresh one
-                        case 'restart':
-                            if (debugLogs) console.log('SERVER: Got restart event')
-                            var starTime = debugLogs ? (new Date()).getMilliseconds() : undefined
-                            child.mike = "hero"
-                            // Kill child with previous wasm instance
-                            killChildProcess(child)
-                            if (debugLogs) console.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
-                            // Create a new child process and add it to the pool
-                            const newChild = createChildProcess()
-                            if (debugLogs) console.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
-                            newChild.busy = true
-                            childProcessPool.push(newChild)
-                            if (debugLogs) console.log('SERVER: Replaced killed child process with a new one.')
-                            resolve(await workWithChild(newChild))
-                            break
-                        // Rendered the page
-                        case 'render':
-                            if (debugLogs) console.log('SERVER: Render called')
-                            if (event.html) {
-                                // Retrieve expiresIn and convert it into milliseconds
-                                const expirationTime = (event.expiresIn === 0 ? 60 * 60 * 24 * 30 : event.expiresIn) * 1000
-                                // Retrieve lastModifiedAt and instantiate it as Date
-                                const lastModifiedAt = event.lastModifiedAt ? new Date(event.lastModifiedAt * 1000) : undefined
-                                // Cleanup HTML content from ids since they are randomly generated every time
-                                const html = removeIds(event.html)
-                                // Generate Etag based on the clean content
-                                const newEtag = generateETag(html)
-                                // Cache the generated HTML with an expiration time
-                                cache[request.url] = {
-                                    expiresAt: now + expirationTime,
-                                    html: event.html,
-                                    etag: newEtag,
-                                    lastModifiedAt: lastModifiedAt
-                                }
-                                // Release the child process for the next request
-                                releaseChildProcess(child)
-                                // Don't send content if etag is same
-                                if (clientETag && clientETag == newEtag) {
-                                    if (debugLogs) console.log('SERVER: Etag is same, return 304')
-                                    return resolve(reply.code(304).send())
-                                }
-                                // Don't send content if content haven't been modified yet
-                                if (clientLastModifiedSince && clientLastModifiedSince >= cached.lastModifiedAt) {
-                                    if (debugLogs) console.log('SERVER: LastModifiedAt is same, return 304')
-                                    return reply.code(304).send()
-                                }
-                                // Attach Etag header
-                                reply.header('ETag', newEtag)
-                                // Attach Last-Modified header if value is present
-                                if (lastModifiedAt) {
-                                    reply.header('Last-Modified', lastModifiedAt.toUTCString())
-                                }
-                                if (debugLogs) console.log('SERVER: Return newly rendered html')
-                                // Send the response
-                                resolve(reply.type('text/html').send(event.html))
-                            }
-                            // HTML is not present, it is serious server-side error
-                            else {
-                                console.error(message.error)
-                                resolve(reply.code(500).send())
-                            }
-                            break
-                        default: break
+                // Return cached content
+                else {
+                    reply.header('ETag', cached.etag)
+                    if (cached.lastModifiedAt) {
+                        reply.header('Last-Modified', cached.lastModifiedAt.toUTCString())
                     }
+                    return reply.type('text/html').send(cached.html)
+                }
+            }
+            // Check if wasm file present
+            if (!fs.existsSync(pathToWasm)) {
+                return reply.code(500).send()
+            }
+            const wasmMtime = fs.statSync(pathToWasm).mtime.getTime()
+            // Cached content is missing or expired
+            // so let's get a child process to retrieve the content
+            const child = await getAvailableChildProcess()
+            // Method to work with child process
+            async function workWithChild(child) {
+                // Request the child to generate HTML for this route path
+                return new Promise((resolve) => {
+                    // Listening for event from the child process
+                    child.once('message', async (event) => {
+                        // Switching event type
+                        switch (event.type) {
+                            // Kill the process with old instance and start fresh one
+                            case 'restart':
+                                if (debugLogs) console.log('SERVER: Got restart event')
+                                var starTime = debugLogs ? (new Date()).getMilliseconds() : undefined
+                                child.mike = "hero"
+                                // Kill child with previous wasm instance
+                                killChildProcess(child)
+                                if (debugLogs) console.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                // Create a new child process and add it to the pool
+                                const newChild = createChildProcess()
+                                if (debugLogs) console.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                newChild.busy = true
+                                childProcessPool.push(newChild)
+                                if (debugLogs) console.log('SERVER: Replaced killed child process with a new one.')
+                                resolve(await workWithChild(newChild))
+                                break
+                            // Rendered the page
+                            case 'render':
+                                if (debugLogs) console.log('SERVER: Render called')
+                                if (event.html) {
+                                    // Retrieve expiresIn and convert it into milliseconds
+                                    const expirationTime = (event.expiresIn === 0 ? 60 * 60 * 24 * 30 : event.expiresIn) * 1000
+                                    // Retrieve lastModifiedAt and instantiate it as Date
+                                    const lastModifiedAt = event.lastModifiedAt ? new Date(event.lastModifiedAt * 1000) : undefined
+                                    // Cleanup HTML content from ids since they are randomly generated every time
+                                    const html = removeIds(event.html)
+                                    // Generate Etag based on the clean content
+                                    const newEtag = generateETag(html)
+                                    // Cache the generated HTML with an expiration time
+                                    cache[request.url] = {
+                                        expiresAt: now + expirationTime,
+                                        html: event.html,
+                                        etag: newEtag,
+                                        lastModifiedAt: lastModifiedAt
+                                    }
+                                    // Release the child process for the next request
+                                    releaseChildProcess(child)
+                                    // Don't send content if etag is same
+                                    if (clientETag && clientETag == newEtag) {
+                                        if (debugLogs) console.log('SERVER: Etag is same, return 304')
+                                        return resolve(reply.code(304).send())
+                                    }
+                                    // Don't send content if content haven't been modified yet
+                                    if (clientLastModifiedSince && clientLastModifiedSince >= cached.lastModifiedAt) {
+                                        if (debugLogs) console.log('SERVER: LastModifiedAt is same, return 304')
+                                        return reply.code(304).send()
+                                    }
+                                    // Attach Etag header
+                                    reply.header('ETag', newEtag)
+                                    // Attach Last-Modified header if value is present
+                                    if (lastModifiedAt) {
+                                        reply.header('Last-Modified', lastModifiedAt.toUTCString())
+                                    }
+                                    if (debugLogs) console.log('SERVER: Return newly rendered html')
+                                    // Send the response
+                                    resolve(reply.type('text/html').send(event.html))
+                                }
+                                // HTML is not present, it is serious server-side error
+                                else {
+                                    console.error(message.error)
+                                    resolve(reply.code(500).send())
+                                }
+                                break
+                            default: break
+                        }
+                    })
+                    // Check if wasm file was modified
+                    // which will proceed to `render` action
+                    child.send({
+                        type: 'render',
+                        debugLogs: debugLogs,
+                        path: path,
+                        search: search,
+                        serverPort: port,
+                        pathToWasm: pathToWasm,
+                        wasmMtime: wasmMtime
+                    })
                 })
-                // Check if wasm file was modified
-                // which will proceed to `render` action
-                child.send({
-                    type: 'render',
-                    debugLogs: debugLogs,
-                    path: path,
-                    search: search,
-                    serverPort: port,
-                    pathToWasm: pathToWasm,
-                    wasmMtime: wasmMtime
-                })
-            })
+            }
+            // Call the child process
+            await workWithChild(child)
+        } catch (error) {
+            return reply.code(503).send(debugLogs ? `${error}` : undefined) // Service Unavailable
         }
-        // Call the child process
-        await workWithChild(child)
     })
     // Start the server
     const start = async () => {
