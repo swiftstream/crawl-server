@@ -51,16 +51,18 @@ process.on('message', async (event) => {
                 if (!pathToWasm) {
                     process.send({
                         type: 'crash',
-                        reason: 'Path to wasm is undefined.'
+                        reason: 'Path to wasm is undefined.',
+                        originalEvent: event
                     })
-                    exit(1)
+                    return setTimeout(() => { exit(1) }, 100)
                 }
                 if (!fs.existsSync(pathToWasm)) {
                     process.send({
                         type: 'crash',
-                        reason: `Wasm not found at: ${pathToWasm}`
+                        reason: `Wasm not found at: ${pathToWasm}`,
+                        originalEvent: event
                     })
-                    exit(2)
+                    return setTimeout(() => { exit(2) }, 100)
                 }
                 process.wasmMtime = fs.statSync(pathToWasm).mtime.getTime()
                 process.wasmBytes = fs.readFileSync(pathToWasm)
