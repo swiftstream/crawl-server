@@ -32,3 +32,6 @@ start(
     process.env.CS_DEBUG,
     process.env.CS_CHILD_PROCESSES
 )
+export function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses) {
+    start(pathToWasm, port, debugLogs, numberOfChildProcesses)
+}
