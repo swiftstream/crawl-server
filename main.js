@@ -26,12 +26,14 @@
 
 import { start } from './server.js'
 
-start(
-    process.env.CS_PATH_TO_WASM,
-    process.env.CS_SERVER_PORT,
-    process.env.CS_DEBUG,
-    process.env.CS_CHILD_PROCESSES
-)
+if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
+    start(
+        process.env.CS_PATH_TO_WASM,
+        process.env.CS_SERVER_PORT,
+        process.env.CS_DEBUG,
+        process.env.CS_CHILD_PROCESSES
+    )
+}
 export function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses) {
     start(pathToWasm, port, debugLogs, numberOfChildProcesses)
 }
