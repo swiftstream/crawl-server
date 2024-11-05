@@ -40,7 +40,7 @@ import { createHash } from 'crypto'
 // Cold start of a new process with a WebAssembly instance takes about 300ms to respond.
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
-export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
+export function start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
     if (pathToWasm === undefined) {
         console.error('SERVER: Path to WASM is undefined.')
         return undefined
@@ -65,6 +65,14 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
     const childProcessPool = []
     // Queue for requests waiting for an available child
     const pendingRequests = []
+    // Server state
+    let state = undefined
+    // Proxy method to `stateHandler` which updates `state` variable
+    function updateState(s) {
+        if (s.state == state) return
+        state = s.state
+        stateHandler(s)
+    }
 
     // Function to create a new child process and add it to the pool
     function createChildProcess() {
@@ -82,13 +90,26 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
             if (!child.intentionally) {
                 const disasterCrash = ((new Date()).getMilliseconds() - child.spawnedAt < 5000)
                 const respawnTimeout = disasterCrash ? DISASTER_RESPAWN_TIMEOUT * 1000 : 1
-                if (disasterCrash)
-                    console.error(`Something went wrong with the wasm instance because it crashed too early. Respawning in ${DISASTER_RESPAWN_TIMEOUT}s.`)
+                if (disasterCrash) {
+                    const text = `Something went wrong with the wasm instance because it crashed too early. Respawning in ${DISASTER_RESPAWN_TIMEOUT}s.`
+                    if (stateHandler) updateState({
+                        state: 'failing',
+                        situation: 'disasterly_crashed',
+                        description: text
+                    })
+                    console.error(`SERVER: ${text}`)
+                }
                 setTimeout(() => {
                     // Create a new child process to replace it
                     const newChild = createChildProcess()
-                    if (debugLogs) console.log(`SERVER: Replaced dead child process with a new one.`)
+                    const text = 'Replaced dead child process with a new one.'
+                    if (debugLogs) console.log(`SERVER: ${text}`)
                     childProcessPool.push(newChild)
+                    if (stateHandler) updateState({
+                        state: 'operating',
+                        situation: 'respawned_after_disaster',
+                        description: text
+                    })
                 }, respawnTimeout)
             } else {
                 if (debugLogs) console.log(`SERVER: Child process has been killed intentionally.`)
@@ -196,6 +217,11 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
             }
             // Check if wasm file present
             if (!fs.existsSync(pathToWasm)) {
+                if (stateHandler) updateState({
+                    state: 'failing',
+                    situation: 'wasm_missing',
+                    description: 'WASM file not found unexpectedly'
+                })
                 return reply.code(500).send()
             }
             const wasmMtime = fs.statSync(pathToWasm).mtime.getTime()
@@ -229,6 +255,11 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
                             case 'render':
                                 if (debugLogs) console.log('SERVER: Render called')
                                 if (event.html) {
+                                    if (stateHandler) updateState({
+                                        state: 'operating',
+                                        situation: 'html_rendered',
+                                        description: 'HTML rendered successfully'
+                                    })
                                     // Retrieve expiresIn and convert it into milliseconds
                                     const expirationTime = (event.expiresIn === 0 ? 60 * 60 * 24 * 30 : event.expiresIn) * 1000
                                     // Retrieve lastModifiedAt and instantiate it as Date
@@ -268,6 +299,11 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
                                 }
                                 // HTML is not present, it is serious server-side error
                                 else {
+                                    if (stateHandler) updateState({
+                                        state: 'failing',
+                                        situation: 'html_not_rendered',
+                                        description: `HTML wasn't rendered`
+                                    })
                                     console.error(message.error)
                                     resolve(reply.code(500).send())
                                 }
@@ -291,6 +327,11 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
             // Call the child process
             await workWithChild(child)
         } catch (error) {
+            if (stateHandler) updateState({
+                state: 'failing',
+                situation: 'request_failed',
+                description: `${error}`
+            })
             return reply.code(503).send(debugLogs ? `${error}` : undefined) // Service Unavailable
         }
     })
@@ -299,7 +340,13 @@ export function start(pathToWasm, port, debugLogs, numberOfChildProcesses) {
         try {
             const options = { port: port }
             await fastify.listen(options)
-            fastify.log.info(`Server listening on http://localhost:${options.port}`)
+            const text = `Server listening on http://localhost:${options.port}`
+            fastify.log.info(text)
+            if (stateHandler) updateState({
+                state: 'operating',
+                situation: 'server_started',
+                description: text
+            })
         } catch (err) {
             fastify.log.error(err)
             return undefined

@@ -35,6 +35,6 @@ if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
     )
     if (!started) process.exit(1)
 }
-export function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses) {
-    return start(pathToWasm, port, debugLogs, numberOfChildProcesses)
+export function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
+    return start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler)
 }
