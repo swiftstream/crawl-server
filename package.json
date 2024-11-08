@@ -17,6 +17,9 @@
   },
   "keywords": ["seo", "crawler", "webassembly", "wasm", "renderer", "server", "swift", "swift-wasm", "swifweb", "swiftstream"],
   "main": "main.js",
+  "bin": {
+    "crawlserver": "./cli.js"
+  },
   "type": "module",
   "scripts": {
     "start": "node main.js"
