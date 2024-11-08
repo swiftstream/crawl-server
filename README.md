@@ -38,14 +38,14 @@ Then, you can run it as follows:
 
 ```bash
 Arguments:
-  path                                     Path to the WebAssembly application file
+  path                   Path to the WebAssembly application file
 
 Options:
-  -V, --version                            Output the version number
-  -p, --port <port>                        Port for the server to listen on
-  -c, --child-processes <child_processes>  Number of concurrent WebAssembly instances to spawn (default: 4)
-  -d, --debug                              Enable debug logs
-  -h, --help                               Display help for command
+  -V, --version          Output the version number
+  -p, --port             Port for the server to listen on
+  -c, --child-processes  Number of concurrent WebAssembly instances to spawn (default: 4)
+  -d, --debug            Enable debug logs
+  -h, --help             Display help for command
 ```
 
 ### Module
