@@ -10,12 +10,43 @@ It is designed to be used either as a standalone server or as an imported module
 
 ### Standalone
 
+#### Via node
+
 To run as a standalone server, configure it with environment variables:
 
 - **`CS_PATH_TO_WASM`**: Path to the WebAssembly application file.
 - **`CS_SERVER_PORT`**: Port for the server to listen on.
-- **`CS_DEBUG`**: Set to `TRUE` to enable debug logs.
 - **`CS_CHILD_PROCESSES`**: Number of concurrent WebAssembly instances to spawn (default: 4).
+- **`CS_DEBUG`**: Set to `TRUE` to enable debug logs.
+
+And then run from its folder as `npm run start` or `node main.js`.
+
+#### CLI tool
+
+Make sure to install `crawl-server` globally using:
+```bash
+npm install -g crawl-server
+```
+
+Then, you can run it as follows:
+
+- Basic usage: `crawlserver /path/to/app.wasm`
+- Using environment variables: `crawlserver`
+- With all options specified: `crawlserver /path/to/app.wasm -p 3322 -c 4 -d`
+
+##### CLI Arguments and Options
+
+```bash
+Arguments:
+  path                                     Path to the WebAssembly application file
+
+Options:
+  -V, --version                            Output the version number
+  -p, --port <port>                        Port for the server to listen on
+  -c, --child-processes <child_processes>  Number of concurrent WebAssembly instances to spawn (default: 4)
+  -d, --debug                              Enable debug logs
+  -h, --help                               Display help for command
+```
 
 ### Module
 
