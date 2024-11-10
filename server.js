@@ -326,7 +326,6 @@ export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses,
                                         situation: 'html_not_rendered',
                                         description: `HTML wasn't rendered`
                                     })
-                                    console.error(message.error)
                                     resolve(reply.code(500).send())
                                 }
                                 break
