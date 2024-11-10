@@ -318,7 +318,7 @@ export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses,
                                     }
                                     if (debugLogs) console.log('SERVER: Return newly rendered html')
                                     // Send the response
-                                    resolve(reply.type('text/html').send(event.html))
+                                    resolve(reply.type('text/html').send(html))
                                 }
                                 // HTML is not present, it is serious server-side error
                                 else {
