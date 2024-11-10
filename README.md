@@ -18,6 +18,7 @@ To run as a standalone server, configure it with environment variables:
 - **`CS_SERVER_PORT`**: Port for the server to listen on.
 - **`CS_CHILD_PROCESSES`**: Number of concurrent WebAssembly instances to spawn (default: 4).
 - **`CS_DEBUG`**: Set to `TRUE` to enable debug logs.
+- **`CS_GLOBAL_BIND`**: Set to `TRUE` to bind to 0.0.0.0.
 
 And then run from its folder as `npm run start` or `node main.js`.
 
@@ -32,7 +33,7 @@ Then, you can run it as follows:
 
 - Basic usage: `crawlserver /path/to/app.wasm`
 - Using environment variables: `crawlserver`
-- With all options specified: `crawlserver /path/to/app.wasm -p 3322 -c 4 -d`
+- With all options specified: `crawlserver /path/to/app.wasm -p 3322 -c 4 -d -g`
 
 ##### CLI Arguments and Options
 
@@ -45,6 +46,7 @@ Options:
   -p, --port             Port for the server to listen on
   -c, --child-processes  Number of concurrent WebAssembly instances to spawn (default: 4)
   -d, --debug            Enable debug logs
+  -g, --global           Bind to 0.0.0.0
   -h, --help             Display help for command
 ```
 
@@ -56,10 +58,26 @@ To use as an imported module, install it and call the `start()` method:
 import { start } from 'crawl-server'
 
 start(
-    '/path/to/app.wasm', // path to the WebAssembly application file
-    3000,                // port
-    false,               // debug logs
-    4                    // number of concurrent WebAssembly instances to spawn
+  '/path/to/app.wasm',             // path to the WebAssembly application file
+  {                                // options:
+    port: 3000,                    //   port
+    debug: true,                   //   debug logs
+    bindGlobally: true,            //   bind to 0.0.0.0
+    numberOfInstances: 4,          //   number of concurrent WebAssembly instances to spawn
+    stateHandler: (e) => {         //   listen for state changes
+      console.log(e.state)         //   operating, stopping, failing
+      console.log(e.description)   //   human readable description of the situation
+      console.log(e.situation)     //   situations: server_started
+                                   //               stopped_child_process
+                                   //               wasm_missing
+                                   //               disasterly_crashed
+                                   //               respawned_after_disaster
+                                   //               html_rendered
+                                   //               html_not_rendered
+                                   //               request_failed
+                                   //               fulfilled_stop_call
+    }
+  }
 )
 ```
 
