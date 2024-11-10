@@ -33,7 +33,7 @@ const program = new Command()
 program
     .name('crawlserver')
     .description('Efficient SEO-focused server for Wasm-generated pages')
-    .version('1.5.0')
+    .version('1.5.1')
     .argument('[path]', 'Path to the WebAssembly application file')
     .option('-p, --port <port>', 'Port for the server to listen on')
     .option('-c, --child-processes <child_processes>', 'Number of concurrent WebAssembly instances to spawn (default: 4)')
