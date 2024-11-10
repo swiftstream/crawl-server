@@ -96,6 +96,27 @@ start(
 
 This setup ensures fast, SEO-optimized responses for search engine crawlers, balancing performance and resource management.
 
+## ⚡️ WASI-side Implementation
+
+When your app starts, call `wasiAppOnStart()` which is available in JS global scope.
+
+Optionally, implement `wasiDisableLocationChangeListener` method in JS global scope, it'll be called to disable the default router in your app.
+
+Implement `wasiChangeRoute` in JS global scope to handle route changes within your app.
+
+The server will call wasiChangeRoute as follows:
+```javascript
+global.wasiChangeRoute(
+    path,                // route path, e.g. /articles/1
+    query,               // query part, e.g. firstName=John&lastName=Smith
+    (                    // `rendered` handler, it should be called once page is fully rendered
+        expiresIn,       // optional, in what time (in seconds) this content will be expired
+        lastModifiedAt   // optional, e.g. article createdAt/editedAt unix timestamp (in seconds from 1970)
+    ) => {
+    // here server renders HTML and returns it to the search engine crawler
+})
+```
+
 ## 🙇‍♂️ Contributing
 
 Contributions are welcome! Please feel free to fork the repository and submit a pull request.
