@@ -273,6 +273,7 @@ export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses,
                                     description: `HTML wasn't rendered`
                                 })
                                 resolve(reply.code(501).send())
+                                break
                             // Rendered the page
                             case 'render':
                                 if (debugLogs) console.log('SERVER: Render called')
