@@ -68,15 +68,23 @@ process.on('message', async (event) => {
                 process.wasmBytes = fs.readFileSync(pathToWasm)
                 if (debugLogs) console.log('PROCESS: Load wasm instance in child process first time')
                 await spawnWasi(process.wasmBytes, path, search, serverPort, event.debugLogs, (dom, expiresIn, lastModifiedAt) => {
-                    process.dom = dom
-                    if (debugLogs) console.log('PROCESS: Page rendered for the first time')
-                    // Send the generated HTML back to the parent process
-                    process.send({
-                        type: 'render',
-                        expiresIn: expiresIn,
-                        lastModifiedAt: lastModifiedAt,
-                        html: process.dom.serialize()
-                    })
+                    if (!dom) {
+                        if (debugLogs) console.log('PROCESS: Page not rendered')
+                        // Send `not-rendered` event
+                        process.send({
+                            type: 'not-rendered'
+                        })
+                    } else {
+                        process.dom = dom
+                        if (debugLogs) console.log('PROCESS: Page rendered for the first time')
+                        // Send the generated HTML back to the parent process
+                        process.send({
+                            type: 'render',
+                            expiresIn: expiresIn,
+                            lastModifiedAt: lastModifiedAt,
+                            html: process.dom.serialize()
+                        })
+                    }
                 })
             } else {
                 if (debugLogs) console.log('PROCESS: Reuse existing wasm instance')

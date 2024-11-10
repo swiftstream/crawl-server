@@ -265,6 +265,14 @@ export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses,
                                 if (debugLogs) console.log('SERVER: Replaced killed child process with a new one.')
                                 resolve(await workWithChild(newChild))
                                 break
+                            // Unable to render
+                            case 'not-rendered':
+                                if (stateHandler) updateState({
+                                    state: 'failing',
+                                    situation: 'html_not_rendered',
+                                    description: `HTML wasn't rendered`
+                                })
+                                resolve(reply.code(501).send())
                             // Rendered the page
                             case 'render':
                                 if (debugLogs) console.log('SERVER: Render called')

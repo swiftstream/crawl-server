@@ -93,13 +93,29 @@ export async function spawnWasi(wasmBytes, path, search, serverPort, debugLogs, 
         if (swift && instance.exports.swjs_library_version) {
             swift.setInstance(instance)
         }
+        var wasiAppStarted = false
+        setTimeout(() => {
+            if (!wasiAppStarted) {
+                if (debugLogs) console.log(`WASI: wasiAppOnStart wasn't called in 5000ms (fatal)`)
+                domHandler(undefined, 0, 0)
+            }
+        }, 5000)
         global.wasiAppOnStart = () => {
+            wasiAppStarted = true
             if (debugLogs) console.log(`WASI: global.wasiAppOnStart in ${(new Date()).getMilliseconds() - starTime}ms`)
-            global.wasiDisableLocationChangeListener()
-            global.wasiChangeRoute(path, search, (expiresIn, lastModifiedAt) => {
-                if (debugLogs) console.log(`WASI: rendered route in ${(new Date()).getMilliseconds() - starTime}ms`)
-                domHandler(dom, expiresIn, lastModifiedAt)
-            })
+            if (global.wasiDisableLocationChangeListener) {
+                if (debugLogs) console.log(`WASI: wasiDisableLocationChangeListener not implemented (non-critical)`)
+                global.wasiDisableLocationChangeListener()
+            }
+            if (!global.wasiChangeRoute) {
+                if (debugLogs) console.log(`WASI: wasiChangeRoute not implemented (fatal)`)
+                domHandler(undefined, 0, 0)
+            } else {
+                global.wasiChangeRoute(path, search, (expiresIn, lastModifiedAt) => {
+                    if (debugLogs) console.log(`WASI: rendered route in ${(new Date()).getMilliseconds() - starTime}ms`)
+                    domHandler(dom, expiresIn, lastModifiedAt)
+                })
+            }
         }
         // Start the WebAssembly WASI instance
         wasi.start(instance)
