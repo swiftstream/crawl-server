@@ -33,17 +33,19 @@ const program = new Command()
 program
     .name('crawlserver')
     .description('Efficient SEO-focused server for Wasm-generated pages')
-    .version('1.3.0')
+    .version('1.4.0')
     .argument('[path]', 'Path to the WebAssembly application file')
     .option('-p, --port <port>', 'Port for the server to listen on')
     .option('-c, --child-processes <child_processes>', 'Number of concurrent WebAssembly instances to spawn (default: 4)')
     .option('-d, --debug', 'Enable debug logs')
+    .option('-g, --global', 'Bind to 0.0.0.0')
     .action(async (path, options) => {
         const started = await start(
             path ?? process.env.CS_PATH_TO_WASM,
             options.port ?? process.env.CS_SERVER_PORT,
             options.debug ?? process.env.CS_DEBUG,
-            options.child_processes ?? process.env.CS_CHILD_PROCESSES
+            options.child_processes ?? process.env.CS_CHILD_PROCESSES,
+            options.global ?? process.env.CS_GLOBAL_BIND
         )
         if (started.errorCode) {
             switch (started.errorCode) {

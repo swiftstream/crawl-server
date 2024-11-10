@@ -40,7 +40,7 @@ import { createHash } from 'crypto'
 // Cold start of a new process with a WebAssembly instance takes about 300ms to respond.
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
-export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
+export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses, bindGlobally, stateHandler) {
     if (pathToWasm === undefined) {
         console.error('SERVER: Path to WASM is undefined.')
         return { errorCode: 0 }
@@ -352,7 +352,9 @@ export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses,
     // Start the server
     const start = async () => {
         try {
-            const options = { port: port }
+            var options = { port: port }
+            if (bindGlobally)
+                options.host = '0.0.0.0'
             await fastify.listen(options)
             const text = `Server listening on http://localhost:${options.port}`
             fastify.log.info(text)

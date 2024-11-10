@@ -31,7 +31,8 @@ if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
         process.env.CS_PATH_TO_WASM,
         process.env.CS_SERVER_PORT,
         process.env.CS_DEBUG,
-        process.env.CS_CHILD_PROCESSES
+        process.env.CS_CHILD_PROCESSES,
+        process.env.CS_GLOBAL_BIND
     )
     if (started.errorCode) {
         switch (started.errorCode) {
@@ -46,6 +47,6 @@ if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
         }
     }
 }
-export async function startServer(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler) {
-    return await start(pathToWasm, port, debugLogs, numberOfChildProcesses, stateHandler)
+export async function startServer(pathToWasm, options) {
+    return await start(pathToWasm, options.port, options.debug, options.numberOfInstances, options.bindGlobally, options.stateHandler)
 }
