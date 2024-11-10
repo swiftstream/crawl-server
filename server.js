@@ -294,7 +294,7 @@ export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses,
                                     // Cache the generated HTML with an expiration time
                                     cache[request.url] = {
                                         expiresAt: now + expirationTime,
-                                        html: event.html,
+                                        html: html,
                                         etag: newEtag,
                                         lastModifiedAt: lastModifiedAt
                                     }
