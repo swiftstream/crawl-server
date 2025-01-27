@@ -32,6 +32,9 @@
     "crawlserver": "./cli.js"
   },
   "type": "module",
+  "exports": {
+    "./server": "./server.js"
+  },
   "scripts": {
     "start": "node main.js"
   },
