@@ -40,6 +40,10 @@ import { createHash } from 'crypto'
 // Cold start of a new process with a WebAssembly instance takes about 300ms to respond.
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 export async function start(pathToWasm, port, logger, numberOfChildProcesses, bindGlobally, stateHandler) {
     if (pathToWasm === undefined) {
         if (logger) logger.error('SERVER: Path to WASM is undefined.')
@@ -54,7 +58,7 @@ export async function start(pathToWasm, port, logger, numberOfChildProcesses, bi
     const server = new Server({
         pathToWasm: pathToWasm,
         port: port,
-        debugLogs: debugLogs,
+        logger: logger,
         numberOfChildProcesses: numberOfChildProcesses,
         bindGlobally: bindGlobally,
         stateHandler: stateHandler
@@ -105,9 +109,6 @@ export async function start(pathToWasm, port, logger, numberOfChildProcesses, bi
 }
 
 export class Server {
-    __filename = fileURLToPath(import.meta.url)
-    __dirname = path.dirname(__filename)
-
     MAX_CHILD_PROCESSES = 4
     MAX_PENDING_REQUESTS = 1000
     DISASTER_RESPAWN_TIMEOUT = 10 // in seconds
@@ -122,22 +123,22 @@ export class Server {
     state = undefined
     // State Handler
     stateHandler = undefined
-    // Debug Logs
-    logger = undefinied
+    // Logger
+    logger = undefined
     // Fastify
     fastify = undefined
 
     constructor (options) {
-        this.pathToWasm = pathToWasm
-        this.port = port
-        this.bindGlobally = bindGlobally
-        this.stateHandler = stateHandler
+        this.pathToWasm = options.pathToWasm
+        this.port = options.port
+        this.bindGlobally = options.bindGlobally
+        this.stateHandler = options.stateHandler
         this.numberOfChildProcesses = options.numberOfChildProcesses ?? 4
         this.logger = options.logger
         this.fastify = options.fastify ?? Fastify({ logger: this.logger != undefined })
         
         // Initialize child process pool
-        for (let i = 0; i < MAX_CHILD_PROCESSES; i++) {
+        for (let i = 0; i < this.numberOfChildProcesses; i++) {
             const child = this.createChildProcess()
             this.childProcessPool.push(child)
         }
@@ -147,7 +148,7 @@ export class Server {
     updateState(s) {
         if (s.state == this.state) return
         this.state = s.state
-        stateHandler(s)
+        this.stateHandler(s)
     }
 
     // Function to create a new child process and add it to the pool
@@ -295,7 +296,7 @@ export class Server {
                 }
             }
             // Check if wasm file present
-            if (!fs.existsSync(pathToWasm)) {
+            if (!fs.existsSync(this.pathToWasm)) {
                 if (this.stateHandler) this.updateState({
                     state: 'failing',
                     situation: 'wasm_missing',
@@ -308,7 +309,7 @@ export class Server {
             // so let's get a child process to retrieve the content
             const child = await this.getAvailableChildProcess()
             // Method to work with child process
-            async function workWithChild(child) {
+            async function workWithChild(child, context) {
                 // Request the child to generate HTML for this route path
                 return new Promise((resolve) => {
                     // Listening for event from the child process
@@ -317,26 +318,26 @@ export class Server {
                         switch (event.type) {
                             // Crash
                             case 'crash':
-                                if (this.logger) this.logger.log(`PROCESS: Crashed. ${event}`)
+                                if (context.logger) context.logger.log(`PROCESS: Crashed. ${event}`)
                                 break
                             // Kill the process with old instance and start fresh one
                             case 'restart':
-                                if (this.logger) this.logger.log('SERVER: Got restart event')
-                                var starTime = this.debugLogs ? (new Date()).getMilliseconds() : undefined
+                                if (context.logger) context.logger.log('SERVER: Got restart event')
+                                var starTime = context.logger ? (new Date()).getMilliseconds() : undefined
                                 // Kill child with previous wasm instance
-                                this.killChildProcess(child)
-                                if (this.logger) this.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                context.killChildProcess(child)
+                                if (context.logger) context.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                 // Create a new child process and add it to the pool
-                                const newChild = this.createChildProcess()
-                                if (this.logger) this.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                const newChild = context.createChildProcess()
+                                if (context.logger) context.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                 newChild.busy = true
-                                this.childProcessPool.push(newChild)
-                                if (this.logger) this.logger.log('SERVER: Replaced killed child process with a new one.')
+                                context.childProcessPool.push(newChild)
+                                if (context.logger) context.logger.log('SERVER: Replaced killed child process with a new one.')
                                 resolve(await workWithChild(newChild))
                                 break
                             // Unable to render
                             case 'not-rendered':
-                                if (this.stateHandler) this.updateState({
+                                if (context.stateHandler) context.updateState({
                                     state: 'failing',
                                     situation: 'html_not_rendered',
                                     description: `HTML wasn't rendered`
@@ -345,9 +346,9 @@ export class Server {
                                 break
                             // Rendered the page
                             case 'render':
-                                if (this.logger) this.logger.log('SERVER: Render called')
+                                if (context.logger) context.logger.log('SERVER: Render called')
                                 if (event.html) {
-                                    if (this.stateHandler) this.updateState({
+                                    if (context.stateHandler) context.updateState({
                                         state: 'operating',
                                         situation: 'html_rendered',
                                         description: 'HTML rendered successfully'
@@ -357,26 +358,26 @@ export class Server {
                                     // Retrieve lastModifiedAt and instantiate it as Date
                                     const lastModifiedAt = event.lastModifiedAt ? new Date(event.lastModifiedAt * 1000) : undefined
                                     // Cleanup HTML content from ids since they are randomly generated every time
-                                    const html = this.removeIds(event.html)
+                                    const html = context.removeIds(event.html)
                                     // Generate Etag based on the clean content
-                                    const newEtag = this.generateETag(html)
+                                    const newEtag = context.generateETag(html)
                                     // Cache the generated HTML with an expiration time
-                                    this.cache[request.url] = {
+                                    context.cache[request.url] = {
                                         expiresAt: now + expirationTime,
                                         html: html,
                                         etag: newEtag,
                                         lastModifiedAt: lastModifiedAt
                                     }
                                     // Release the child process for the next request
-                                    this.releaseChildProcess(child)
+                                    context.releaseChildProcess(child)
                                     // Don't send content if etag is same
                                     if (clientETag && clientETag == newEtag) {
-                                        if (this.logger) this.logger.log('SERVER: Etag is same, return 304')
+                                        if (context.logger) context.logger.log('SERVER: Etag is same, return 304')
                                         return resolve(reply.code(304).send())
                                     }
                                     // Don't send content if content haven't been modified yet
                                     if (clientLastModifiedSince && clientLastModifiedSince >= cached.lastModifiedAt) {
-                                        if (this.logger) this.logger.log('SERVER: LastModifiedAt is same, return 304')
+                                        if (context.logger) context.logger.log('SERVER: LastModifiedAt is same, return 304')
                                         return reply.code(304).send()
                                     }
                                     // Attach Etag header
@@ -385,13 +386,13 @@ export class Server {
                                     if (lastModifiedAt) {
                                         reply.header('Last-Modified', lastModifiedAt.toUTCString())
                                     }
-                                    if (this.logger) this.logger.log('SERVER: Return newly rendered html')
+                                    if (context.logger) context.logger.log('SERVER: Return newly rendered html')
                                     // Send the response
                                     resolve(reply.type('text/html').send(html))
                                 }
                                 // HTML is not present, it is serious server-side error
                                 else {
-                                    if (this.stateHandler) this.updateState({
+                                    if (context.stateHandler) context.updateState({
                                         state: 'failing',
                                         situation: 'html_not_rendered',
                                         description: `HTML wasn't rendered`
@@ -406,24 +407,24 @@ export class Server {
                     // which will proceed to `render` action
                     child.send({
                         type: 'render',
-                        debugLogs: this.debugLogs,
+                        debugLogs: context.logger ? true : undefined,
                         path: path,
                         search: search,
-                        serverPort: this.port,
-                        pathToWasm: this.pathToWasm,
+                        serverPort: context.port,
+                        pathToWasm: context.pathToWasm,
                         wasmMtime: wasmMtime
                     })
                 })
             }
             // Call the child process
-            await workWithChild(child)
+            await workWithChild(child, this)
         } catch (error) {
             if (this.stateHandler) this.updateState({
                 state: 'failing',
                 situation: 'request_failed',
                 description: `${error}`
             })
-            return reply.code(503).send(this.debugLogs ? `${error}` : undefined) // Service Unavailable
+            return reply.code(503).send(this.logger ? `${error}` : undefined) // Service Unavailable
         }
     }
 }
