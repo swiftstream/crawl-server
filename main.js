@@ -26,11 +26,13 @@
 
 import { start } from './server.js'
 
+const consoleLogger = { log: (m) => console.log(m), error: (m) => console.error(m) }
+
 if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
     const started = await start(
         process.env.CS_PATH_TO_WASM,
         process.env.CS_SERVER_PORT,
-        process.env.CS_DEBUG,
+        process.env.CS_DEBUG ? consoleLogger : undefined,
         process.env.CS_CHILD_PROCESSES,
         process.env.CS_GLOBAL_BIND
     )
@@ -48,5 +50,5 @@ if (process.env.CS_PATH_TO_WASM && process.env.CS_SERVER_PORT) {
     }
 }
 export async function startServer(pathToWasm, options) {
-    return await start(pathToWasm, options.port, options.debug, options.numberOfInstances, options.bindGlobally, options.stateHandler)
+    return await start(pathToWasm, options.port, options.debug ? consoleLogger : undefined, options.numberOfInstances, options.bindGlobally, options.stateHandler)
 }

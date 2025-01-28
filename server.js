@@ -40,14 +40,14 @@ import { createHash } from 'crypto'
 // Cold start of a new process with a WebAssembly instance takes about 300ms to respond.
 // A warm call to a WebAssembly instance takes about 100ms to respond.
 // A cached response takes about 1ms.
-export async function start(pathToWasm, port, debugLogs, numberOfChildProcesses, bindGlobally, stateHandler) {
+export async function start(pathToWasm, port, logger, numberOfChildProcesses, bindGlobally, stateHandler) {
     if (pathToWasm === undefined) {
-        console.error('SERVER: Path to WASM is undefined.')
+        if (logger) logger.error('SERVER: Path to WASM is undefined.')
         return { errorCode: 0 }
     }
-    if (debugLogs) console.log(`SERVER: Path to wasm: ${pathToWasm}`)
+    if (logger) logger.log(`SERVER: Path to wasm: ${pathToWasm}`)
     if (!fs.existsSync(pathToWasm)) {
-        if (debugLogs) console.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
+        if (logger) logger.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
         return { errorCode: 1 }
     }
 
@@ -123,7 +123,7 @@ export class Server {
     // State Handler
     stateHandler = undefined
     // Debug Logs
-    debugLogs = false
+    logger = undefinied
     // Fastify
     fastify = undefined
 
@@ -133,8 +133,8 @@ export class Server {
         this.bindGlobally = bindGlobally
         this.stateHandler = stateHandler
         this.numberOfChildProcesses = options.numberOfChildProcesses ?? 4
-        this.debugLogs = options.debugLogs ?? false
-        this.fastify = options.fastify ?? Fastify({ logger: this.debugLogs })
+        this.logger = options.logger
+        this.fastify = options.fastify ?? Fastify({ logger: this.logger != undefined })
         
         // Initialize child process pool
         for (let i = 0; i < MAX_CHILD_PROCESSES; i++) {
@@ -157,7 +157,7 @@ export class Server {
         child.spawnedAt = (new Date()).getMilliseconds()
         // Handle the exit event to replace dead processes
         child.on('exit', (code, signal) => {
-            if (this.debugLogs) console.log(`SERVER: Child process exited with code ${code} and signal ${signal}`)
+            if (this.logger) this.logger.log(`SERVER: Child process exited with code ${code} and signal ${signal}`)
             // Remove the dead child from the pool
             const index = this.childProcessPool.indexOf(child)
             if (index > -1) {
@@ -165,7 +165,7 @@ export class Server {
             }
             if (signal === 'SIGTERM') {
                 const text = 'Stopped child process.'
-                if (this.debugLogs) console.log(`SERVER: ${text}`)
+                if (this.logger) this.logger.log(`SERVER: ${text}`)
                 if (this.stateHandler) this.updateState({
                     state: 'stopping',
                     situation: 'stopped_child_process',
@@ -183,13 +183,13 @@ export class Server {
                         situation: 'disasterly_crashed',
                         description: text
                     })
-                    console.error(`SERVER: ${text}`)
+                    if (this.logger) this.logger.error(`SERVER: ${text}`)
                 }
                 setTimeout(() => {
                     // Create a new child process to replace it
                     const newChild = this.createChildProcess()
                     const text = 'Replaced dead child process with a new one.'
-                    if (this.debugLogs) console.log(`SERVER: ${text}`)
+                    if (this.logger) this.logger.log(`SERVER: ${text}`)
                     this.childProcessPool.push(newChild)
                     if (this.stateHandler) this.updateState({
                         state: 'operating',
@@ -198,7 +198,7 @@ export class Server {
                     })
                 }, respawnTimeout)
             } else {
-                if (this.debugLogs) console.log(`SERVER: Child process has been killed intentionally.`)
+                if (this.logger) this.logger.log(`SERVER: Child process has been killed intentionally.`)
             }
         })
         return child
@@ -209,7 +209,7 @@ export class Server {
     killChildProcess(child) {
         setTimeout(() => {
             if (child && child.exitCode === null) { // Check if the child is alive
-                if (this.debugLogs) console.log(`SERVER: Killing child process with PID ${child.pid}`)
+                if (this.logger) this.logger.log(`SERVER: Killing child process with PID ${child.pid}`)
                 child.intentionally = true
                 child.kill() // Send the default SIGTERM signal
             }
@@ -258,7 +258,7 @@ export class Server {
             // Skip resource requests
             // should never go here in production
             if (['ico', 'css', 'js', 'html', 'json'].includes(request.url.split('.').pop())) {
-                if (this.debugLogs) console.log(`SERVER: Skipping ${request.url} request`)
+                if (this.logger) this.logger.log(`SERVER: Skipping ${request.url} request`)
                 // should be handled by nginx
                 return reply.code(404).send()
             }
@@ -317,21 +317,21 @@ export class Server {
                         switch (event.type) {
                             // Crash
                             case 'crash':
-                                if (this.debugLogs) console.log(`PROCESS: Crashed. ${event}`)
+                                if (this.logger) this.logger.log(`PROCESS: Crashed. ${event}`)
                                 break
                             // Kill the process with old instance and start fresh one
                             case 'restart':
-                                if (this.debugLogs) console.log('SERVER: Got restart event')
+                                if (this.logger) this.logger.log('SERVER: Got restart event')
                                 var starTime = this.debugLogs ? (new Date()).getMilliseconds() : undefined
                                 // Kill child with previous wasm instance
                                 this.killChildProcess(child)
-                                if (this.debugLogs) console.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                if (this.logger) this.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                 // Create a new child process and add it to the pool
                                 const newChild = this.createChildProcess()
-                                if (this.debugLogs) console.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                if (this.logger) this.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                 newChild.busy = true
                                 this.childProcessPool.push(newChild)
-                                if (this.debugLogs) console.log('SERVER: Replaced killed child process with a new one.')
+                                if (this.logger) this.logger.log('SERVER: Replaced killed child process with a new one.')
                                 resolve(await workWithChild(newChild))
                                 break
                             // Unable to render
@@ -345,7 +345,7 @@ export class Server {
                                 break
                             // Rendered the page
                             case 'render':
-                                if (this.debugLogs) console.log('SERVER: Render called')
+                                if (this.logger) this.logger.log('SERVER: Render called')
                                 if (event.html) {
                                     if (this.stateHandler) this.updateState({
                                         state: 'operating',
@@ -371,12 +371,12 @@ export class Server {
                                     this.releaseChildProcess(child)
                                     // Don't send content if etag is same
                                     if (clientETag && clientETag == newEtag) {
-                                        if (this.debugLogs) console.log('SERVER: Etag is same, return 304')
+                                        if (this.logger) this.logger.log('SERVER: Etag is same, return 304')
                                         return resolve(reply.code(304).send())
                                     }
                                     // Don't send content if content haven't been modified yet
                                     if (clientLastModifiedSince && clientLastModifiedSince >= cached.lastModifiedAt) {
-                                        if (this.debugLogs) console.log('SERVER: LastModifiedAt is same, return 304')
+                                        if (this.logger) this.logger.log('SERVER: LastModifiedAt is same, return 304')
                                         return reply.code(304).send()
                                     }
                                     // Attach Etag header
@@ -385,7 +385,7 @@ export class Server {
                                     if (lastModifiedAt) {
                                         reply.header('Last-Modified', lastModifiedAt.toUTCString())
                                     }
-                                    if (this.debugLogs) console.log('SERVER: Return newly rendered html')
+                                    if (this.logger) this.logger.log('SERVER: Return newly rendered html')
                                     // Send the response
                                     resolve(reply.type('text/html').send(html))
                                 }
