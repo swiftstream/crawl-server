@@ -34,6 +34,7 @@
   "type": "module",
   "exports": {
     ".": "./index.js",
+    "./cloudFunction": "./cloudFunction.js",
     "./server": "./server.js"
   },
   "scripts": {
