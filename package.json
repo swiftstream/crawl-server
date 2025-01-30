@@ -33,7 +33,7 @@
   },
   "type": "module",
   "exports": {
-    ".": "./main.js",
+    ".": "./index.js",
     "./server": "./server.js"
   },
   "scripts": {
