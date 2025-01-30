@@ -25,8 +25,8 @@
  */
 
 import * as fs from 'fs'
-import path from 'path'
-import http from 'http'
+import * as path from 'path'
+import mime from 'mime'
 import Fastify from 'fastify'
 import { Server } from './server.js'
 
@@ -49,19 +49,13 @@ export function setupCloudFunction(options) {
     if (logger && !logger.log) logger.log = console.log
     if (logger && !logger.error) logger.log = console.error
 
-    let handleRequest = null
-
-    const serverFactory = (handler, opts) => {
-        handleRequest = handler
-        return http.createServer()
-    }
-    const fastify = Fastify({ serverFactory, logger: enableLogs })
+    const fastify = Fastify({ logger: enableLogs })
     const server = new Server({
         pathToWasm: options.pathToWasm,
         port: 8080,
         debugLogs: enableLogs,
         numberOfChildProcesses: options.numberOfChildProcesses ?? 4,
-        bindGlobally: false,
+        bindGlobally: true,
         fastify: fastify,
         logger: logger,
         stateHandler: (s) => {
@@ -77,7 +71,7 @@ export function setupCloudFunction(options) {
         const userAgentLower = userAgent.toLowerCase()
 
         // List of bots
-        const bots = customBots ?? [
+        const bots = options.customBots ?? [
             'linkedinbot',
             'googlebot',
             'yahoo',
@@ -116,7 +110,7 @@ export function setupCloudFunction(options) {
     // Define the wildcard route
     fastify.get('/*', (req, reply) => {
         const userAgent = req.headers['user-agent'] || ''
-        const requestedPath = req.path
+        const requestedPath = req.url
         const filePath = path.join(options.pathToStaticFiles, requestedPath)
         // Serve wasm for crawlers
         if (isCrawler(userAgent)) {
@@ -124,14 +118,18 @@ export function setupCloudFunction(options) {
         }
         // Serve static files normally
         if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
-            return reply.sendFile(filePath)
+            const mimeType = mime.getType(filePath) || 'application/octet-stream'
+            reply.type(mimeType)
+            return reply.send(fs.createReadStream(filePath))
         }
         // If it's not a file, serve index.html for frontend routing (SPA behavior)
-        const indexPath = path.join(STATIC_FILES_DIR, indexFile)
+        const indexPath = path.join(options.pathToStaticFiles, indexFile)
         if (fs.existsSync(indexPath)) {
-            return reply.sendFile(indexPath)
+            const mimeType = mime.getType(indexPath) || 'application/octet-stream'
+            reply.type(mimeType)
+            return reply.send(fs.createReadStream(indexPath))
         }
-        res.status(404).send(`${indexFile} not found`)
+        reply.status(404).send(`${indexPath} not found`)
     })
 
     return server
