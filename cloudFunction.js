@@ -112,15 +112,15 @@ export function setupCloudFunction(options) {
         const userAgent = req.headers['user-agent'] || ''
         const requestedPath = req.url
         const filePath = path.join(options.pathToStaticFiles, requestedPath)
-        // Serve wasm for crawlers
-        if (isCrawler(userAgent)) {
-            return server.requestHandler(req, reply)
-        }
         // Serve static files normally
         if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
             const mimeType = mime.getType(filePath) || 'application/octet-stream'
             reply.type(mimeType)
             return reply.send(fs.createReadStream(filePath))
+        }
+        // Serve wasm for crawlers
+        if (isCrawler(userAgent)) {
+            return server.requestHandler(req, reply)
         }
         // If it's not a file, serve index.html for frontend routing (SPA behavior)
         const indexPath = path.join(options.pathToStaticFiles, indexFile)
