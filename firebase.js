@@ -10,7 +10,7 @@ var config = undefined
 const firebaseConfig = (importMetaUrl, logger) => {
     const __filename = fileURLToPath(importMetaUrl)
     const __dirname = path.dirname(__filename)
-    const configPath = path.join(__dirname, '../firebase.json')
+    const configPath = path.join(__dirname, 'firebase.json')
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     if (!config.hosting) throw 'Missing \'hosting\' configuration in ../firebase.json'
     if (!config.hosting.public || config.hosting.public.trim().length == 0) throw 'Missing \'hosting.public\' value in ../firebase.json'
@@ -21,6 +21,7 @@ const firebaseConfig = (importMetaUrl, logger) => {
         const t = config.hosting.crawlers.split(',')
         if (t.length > 0) customBots = t
     }
+    config.pathToWasm = path.join(__dirname, `${config.hosting.wasm}.wasm`)
     config.staticFilesDir = path.join(__dirname, `../${config.hosting.public}`)
 }
 
@@ -29,7 +30,7 @@ export const handleRenderRequest = async (importMetaUrl, logger, req, reply, cus
     if (!server) {
         server = setupCloudFunction({
             pathToStaticFiles: config.staticFilesDir,
-            pathToWasm: path.join(config.staticFilesDir, `${config.hosting.wasm}.wasm`),
+            pathToWasm: config.pathToWasm,
             indexFile: config.hosting.index,
             logger: logger,
             numberOfChildProcesses: numberOfChildProcesses, // 4 by default
