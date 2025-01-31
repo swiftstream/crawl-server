@@ -8,13 +8,9 @@ var server = undefined
 var config = undefined
 
 const firebaseConfig = (importMetaUrl, logger) => {
-    logger.log(`firebaseConfig importMetaUrl: ${importMetaUrl}`)
     const __filename = fileURLToPath(importMetaUrl)
-    logger.log(`firebaseConfig __filename: ${__filename}`)
     const __dirname = path.dirname(__filename)
-    logger.log(`firebaseConfig __dirname: ${__dirname}`)
     const configPath = path.join(__dirname, '../firebase.json')
-    logger.log(`firebaseConfig configPath: ${configPath}`)
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     if (!config.hosting) throw 'Missing \'hosting\' configuration in ../firebase.json'
     if (!config.hosting.public || config.hosting.public.trim().length == 0) throw 'Missing \'hosting.public\' value in ../firebase.json'
