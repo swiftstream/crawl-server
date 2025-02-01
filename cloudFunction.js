@@ -29,6 +29,7 @@ import * as path from 'path'
 import mime from 'mime'
 import Fastify from 'fastify'
 import { Server } from './server.js'
+import { fileURLToPath } from 'url'
 
 /// Method for cloud function
 ///
