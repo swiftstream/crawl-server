@@ -39,8 +39,9 @@ import { Server } from './server.js'
 /// - numberOfChildProcesses: optional, 4 by defauls
 /// - customBots: optional, array with lowercased bot names
 export function setupCloudFunction(options) {
+    if (!options.importMetaUrl) throw `setupCloudFunction: missing 'importMetaUrl' in options`
     if (!options.pathToWasm) throw `setupCloudFunction: missing 'pathToWasm' in options`
-    if (!options.pathToStaticFiles) if (logger && !logger.log) `setupCloudFunction: missing 'pathToStaticFiles' in options which pass all requests to wasm instance`
+    if (!options.pathToStaticFiles) if (options.logger && options.logger.log) options.logger.log(`setupCloudFunction: missing 'pathToStaticFiles' in options which pass all requests to wasm instance`)
 
     const indexFile = 'main.html'
     const enableLogs = options.logger ? true : undefined
@@ -108,10 +109,24 @@ export function setupCloudFunction(options) {
 
     // Define the wildcard route
     fastify.get('/*', (req, reply) => {
-        if (!options.pathToStaticFiles) {
+        const userAgent = req.headers['user-agent'] || ''
+        // Serve wasm for crawlers
+        if (isCrawler(userAgent)) {
             return server.requestHandler(req, reply)
         }
-        const userAgent = req.headers['user-agent'] || ''
+        // 1. Host only main.html
+        if (!options.pathToStaticFiles) {
+            const __filename = fileURLToPath(options.importMetaUrl)
+            const __dirname = path.dirname(__filename)
+            const indexPath = path.join(__dirname, indexFile)
+            if (fs.existsSync(indexPath)) {
+                const mimeType = mime.getType(indexPath) || 'application/octet-stream'
+                reply.type(mimeType)
+                return reply.send(fs.createReadStream(indexPath))
+            }
+            return reply.status(404).send(`${indexFile} not found`)
+        }
+        // 2. Host static files
         const requestedPath = req.url
         const filePath = path.join(options.pathToStaticFiles, requestedPath)
         // Serve static files normally
@@ -120,11 +135,7 @@ export function setupCloudFunction(options) {
             reply.type(mimeType)
             return reply.send(fs.createReadStream(filePath))
         }
-        // Serve wasm for crawlers
-        if (isCrawler(userAgent)) {
-            return server.requestHandler(req, reply)
-        }
-        // If it's not a file, serve index.html for frontend routing (SPA behavior)
+        // If it's not a file, serve main.html for frontend routing (SPA behavior)
         const indexPath = path.join(options.pathToStaticFiles, indexFile)
         if (fs.existsSync(indexPath)) {
             const mimeType = mime.getType(indexPath) || 'application/octet-stream'
