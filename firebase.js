@@ -30,7 +30,7 @@ export const handleRenderRequest = async (importMetaUrl, logger, req, reply, cus
             importMetaUrl: importMetaUrl,
             pathToWasm: config.pathToWasm,
             logger: logger,
-            numberOfChildProcesses: numberOfChildProcesses, // 4 by default
+            numberOfChildProcesses: 1, // 4 by default
             customBots: customBots
         })
     }
