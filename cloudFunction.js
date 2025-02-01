@@ -33,9 +33,8 @@ import { Server } from './server.js'
 /// Method for cloud function
 ///
 /// Options:
-/// - pathToStaticFiles: required, path to folder with static files
 /// - pathToWasm: required, e.g. ${pathToStaticFiles}/app.wasm
-/// - indexFile: optional, main.html by default
+/// - pathToStaticFiles: optional, path to folder with static files
 /// - logger: optional object with two methods { log: (msg), error: (msg) }
 /// - numberOfChildProcesses: optional, 4 by defauls
 /// - customBots: optional, array with lowercased bot names
@@ -43,7 +42,7 @@ export function setupCloudFunction(options) {
     if (!options.pathToWasm) throw `setupCloudFunction: missing 'pathToWasm' in options`
     if (!options.pathToStaticFiles) if (logger && !logger.log) `setupCloudFunction: missing 'pathToStaticFiles' in options which pass all requests to wasm instance`
 
-    const indexFile = options.indexFile ?? 'main.html'
+    const indexFile = 'main.html'
     const enableLogs = options.logger ? true : undefined
     let logger = options.logger
     if (logger && !logger.log) logger.log = console.log
