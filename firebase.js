@@ -7,12 +7,10 @@ import * as path from 'path'
 var server = undefined
 var config = undefined
 
-const firebaseConfig = (importMetaUrl, logger) => {
+const firebaseConfig = (importMetaUrl) => {
     const __filename = fileURLToPath(importMetaUrl)
     const __dirname = path.dirname(__filename)
     const configPath = path.join(__dirname, 'firebase.json')
-    if (logger && logger.log) logger.log(`2__dirname: ${__dirname}`)
-    if (logger && logger.log) logger.log(`2configPath: ${configPath}`)
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     if (!config.hosting) throw 'Missing \'hosting\' configuration in ../firebase.json'
     if (!config.hosting.public || config.hosting.public.trim().length == 0) throw 'Missing \'hosting.public\' value in ../firebase.json'
@@ -26,7 +24,7 @@ const firebaseConfig = (importMetaUrl, logger) => {
 }
 
 export const handleRenderRequest = async (importMetaUrl, logger, req, reply, customBots, numberOfChildProcesses) => {
-    if (!config) firebaseConfig(importMetaUrl, logger)
+    if (!config) firebaseConfig(importMetaUrl)
     if (!server) {
         server = setupCloudFunction({
             pathToWasm: config.pathToWasm,
