@@ -15,8 +15,6 @@ const firebaseConfig = (importMetaUrl, logger) => {
     if (!config.hosting) throw 'Missing \'hosting\' configuration in ../firebase.json'
     if (!config.hosting.public || config.hosting.public.trim().length == 0) throw 'Missing \'hosting.public\' value in ../firebase.json'
     if (!config.hosting.wasm || config.hosting.wasm.trim().length == 0) throw 'Missing \'hosting.wasm\' value in ../firebase.json'
-    if (!config.hosting.index || config.hosting.index.trim().length == 0) throw 'Missing \'hosting.index\' value in ../firebase.json'
-    if (!config.hosting.index.endsWith('.html')) throw '\'hosting.index\' value in ../firebase.json: should end with .html'
     if (config.hosting.crawlers && config.hosting.crawlers.trim().length > 0) {
         const t = config.hosting.crawlers.split(',')
         if (t.length > 0) customBots = t
