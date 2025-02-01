@@ -188,15 +188,21 @@ export class Server {
                 }
                 setTimeout(() => {
                     // Create a new child process to replace it
-                    const newChild = this.createChildProcess()
-                    const text = 'Replaced dead child process with a new one.'
-                    if (this.logger) this.logger.log(`SERVER: ${text}`)
-                    this.childProcessPool.push(newChild)
-                    if (this.stateHandler) this.updateState({
-                        state: 'operating',
-                        situation: 'respawned_after_disaster',
-                        description: text
-                    })
+                    if (this.logger) this.logger.log(`SERVER: Creating a new child process to replace it.`)
+                    try {
+                        const newChild = this.createChildProcess()
+                        const text = 'Replaced dead child process with a new one.'
+                        if (this.logger) this.logger.log(`SERVER: ${text}`)
+                        this.childProcessPool.push(newChild)
+                        if (this.stateHandler) this.updateState({
+                            state: 'operating',
+                            situation: 'respawned_after_disaster',
+                            description: text
+                        })
+                    } catch (error) {
+                        if (this.logger && this.logger.error) this.logger.error(`createChildProcess error: ${error}`)
+                        else if (this.logger && this.logger.log) this.logger.log(`createChildProcess error: ${error}`)
+                    }
                 }, respawnTimeout)
             } else {
                 if (this.logger) this.logger.log(`SERVER: Child process has been killed intentionally.`)
@@ -328,12 +334,17 @@ export class Server {
                                 context.killChildProcess(child)
                                 if (context.logger) context.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                 // Create a new child process and add it to the pool
-                                const newChild = context.createChildProcess()
-                                if (context.logger) context.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
-                                newChild.busy = true
-                                context.childProcessPool.push(newChild)
-                                if (context.logger) context.logger.log('SERVER: Replaced killed child process with a new one.')
-                                resolve(await workWithChild(newChild))
+                                if (context.logger) context.logger.log(`SERVER: Creating new child process`)
+                                try {
+                                    const newChild = context.createChildProcess()
+                                    if (context.logger) context.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                    newChild.busy = true
+                                    context.childProcessPool.push(newChild)
+                                    if (context.logger) context.logger.log('SERVER: Replaced killed child process with a new one.')
+                                    resolve(await workWithChild(newChild))
+                                } catch (error) {
+                                    reject(error)
+                                }
                                 break
                             // Unable to render
                             case 'not-rendered':
