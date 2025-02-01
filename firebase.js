@@ -29,9 +29,7 @@ export const handleRenderRequest = async (importMetaUrl, logger, req, reply, cus
     if (!config) firebaseConfig(importMetaUrl, logger)
     if (!server) {
         server = setupCloudFunction({
-            pathToStaticFiles: config.staticFilesDir,
             pathToWasm: config.pathToWasm,
-            indexFile: config.hosting.index,
             logger: logger,
             numberOfChildProcesses: numberOfChildProcesses, // 4 by default
             customBots: customBots
