@@ -133,7 +133,7 @@ export class Server {
         this.port = options.port
         this.bindGlobally = options.bindGlobally
         this.stateHandler = options.stateHandler
-        this.numberOfChildProcesses = options.numberOfChildProcesses ?? 4
+        this.numberOfChildProcesses = options.numberOfChildProcesses ?? 1
         this.logger = options.logger
         this.fastify = options.fastify ?? Fastify({ logger: this.logger != undefined })
         

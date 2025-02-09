@@ -55,7 +55,7 @@ export function setupCloudFunction(options) {
         pathToWasm: options.pathToWasm,
         port: 8080,
         debugLogs: enableLogs,
-        numberOfChildProcesses: options.numberOfChildProcesses ?? 4,
+        numberOfChildProcesses: options.numberOfChildProcesses ?? 1,
         bindGlobally: true,
         fastify: fastify,
         logger: logger,
