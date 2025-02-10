@@ -46,12 +46,15 @@ const __dirname = path.dirname(__filename)
 
 export async function start(pathToWasm, port, logger, numberOfChildProcesses, bindGlobally, stateHandler) {
     if (pathToWasm === undefined) {
-        if (logger) logger.error('SERVER: Path to WASM is undefined.')
+        if (logger && logger.error) logger.error('SERVER: Path to WASM is undefined.')
+        else console.error('SERVER: Path to WASM is undefined.')
         return { errorCode: 0 }
     }
-    if (logger) logger.log(`SERVER: Path to wasm: ${pathToWasm}`)
+    if (logger && logger.log) logger.log(`SERVER: Path to wasm: ${pathToWasm}`)
+    else console.log(`SERVER: Path to wasm: ${pathToWasm}`)
     if (!fs.existsSync(pathToWasm)) {
-        if (logger) logger.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
+        if (logger && logger.log) logger.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
+        else console.log(`SERVER: Unable to start. Wasm file not found at ${pathToWasm}`)
         return { errorCode: 1 }
     }
 
@@ -324,23 +327,23 @@ export class Server {
                         switch (event.type) {
                             // Crash
                             case 'crash':
-                                if (context.logger) context.logger.log(`PROCESS: Crashed. ${event}`)
+                                if (context.logger && context.logger.log) context.logger.log(`PROCESS: Crashed. ${event}`)
                                 break
                             // Kill the process with old instance and start fresh one
                             case 'restart':
-                                if (context.logger) context.logger.log('SERVER: Got restart event')
+                                if (context.logger && context.logger.log) context.logger.log('SERVER: Got restart event')
                                 var starTime = context.logger ? (new Date()).getMilliseconds() : undefined
                                 // Kill child with previous wasm instance
                                 context.killChildProcess(child)
-                                if (context.logger) context.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                if (context.logger && context.logger.log) context.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                 // Create a new child process and add it to the pool
-                                if (context.logger) context.logger.log(`SERVER: Creating new child process`)
+                                if (context.logger && context.logger.log) context.logger.log(`SERVER: Creating new child process`)
                                 try {
                                     const newChild = context.createChildProcess()
-                                    if (context.logger) context.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
+                                    if (context.logger && context.logger.log) context.logger.log(`SERVER: Created new child process in ${(new Date()).getMilliseconds() - starTime}ms`)
                                     newChild.busy = true
                                     context.childProcessPool.push(newChild)
-                                    if (context.logger) context.logger.log('SERVER: Replaced killed child process with a new one.')
+                                    if (context.logger && context.logger.log) context.logger.log('SERVER: Replaced killed child process with a new one.')
                                     resolve(await workWithChild(newChild))
                                 } catch (error) {
                                     reject(error)
@@ -357,7 +360,7 @@ export class Server {
                                 break
                             // Rendered the page
                             case 'render':
-                                if (context.logger) context.logger.log('SERVER: Render called')
+                                if (context.logger && context.logger.log) context.logger.log('SERVER: Render called')
                                 if (event.html) {
                                     if (context.stateHandler) context.updateState({
                                         state: 'operating',
@@ -383,12 +386,12 @@ export class Server {
                                     context.releaseChildProcess(child)
                                     // Don't send content if etag is same
                                     if (clientETag && clientETag == newEtag) {
-                                        if (context.logger) context.logger.log('SERVER: Etag is same, return 304')
+                                        if (context.logger && context.logger.log) context.logger.log('SERVER: Etag is same, return 304')
                                         return resolve(reply.code(304).send())
                                     }
                                     // Don't send content if content haven't been modified yet
                                     if (clientLastModifiedSince && clientLastModifiedSince >= cached.lastModifiedAt) {
-                                        if (context.logger) context.logger.log('SERVER: LastModifiedAt is same, return 304')
+                                        if (context.logger && context.logger.log) context.logger.log('SERVER: LastModifiedAt is same, return 304')
                                         return reply.code(304).send()
                                     }
                                     // Attach Etag header
@@ -397,7 +400,7 @@ export class Server {
                                     if (lastModifiedAt) {
                                         reply.header('Last-Modified', lastModifiedAt.toUTCString())
                                     }
-                                    if (context.logger) context.logger.log('SERVER: Return newly rendered html')
+                                    if (context.logger && context.logger.log) context.logger.log('SERVER: Return newly rendered html')
                                     // Send the response
                                     resolve(reply.type('text/html').send(html))
                                 }

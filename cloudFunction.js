@@ -60,7 +60,7 @@ export function setupCloudFunction(options) {
         fastify: fastify,
         logger: logger,
         stateHandler: (s) => {
-            if (logger) logger.log(s)
+            if (logger && logger.log) logger.log(s)
         }
     })
 

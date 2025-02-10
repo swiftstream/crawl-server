@@ -45,7 +45,8 @@ program
             options.port ?? process.env.CS_SERVER_PORT,
             options.debug ?? process.env.CS_DEBUG,
             options.child_processes ?? process.env.CS_CHILD_PROCESSES,
-            options.global ?? process.env.CS_GLOBAL_BIND
+            options.global ?? process.env.CS_GLOBAL_BIND,
+            (options.debug ?? process.env.CS_DEBUG) ? (s) => console.log(s) : undefined
         )
         if (started.errorCode) {
             switch (started.errorCode) {
