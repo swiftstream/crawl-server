@@ -145,14 +145,14 @@ export class Server {
     }
 
     // Proxy method to `stateHandler` which updates `state` variable
-    updateState(s) {
+    updateState = (s) => {
         if (s.state == this.state) return
         this.state = s.state
         this.stateHandler(s)
     }
 
     // Function to create a new child process and add it to the pool
-    createChildProcess() {
+    createChildProcess = () => {
         const child = fork(path.join(__dirname, 'process.js'))
         child.busy = false
         child.spawnedAt = (new Date()).getMilliseconds()
@@ -213,7 +213,7 @@ export class Server {
 
     // Kills child process
     // used to kill process with obsolete wasi instance
-    killChildProcess(child) {
+    killChildProcess = (child) => {
         setTimeout(() => {
             if (child && child.exitCode === null) { // Check if the child is alive
                 if (this.logger) this.logger.log(`SERVER: Killing child process with PID ${child.pid}`)
@@ -224,7 +224,7 @@ export class Server {
     }
 
     // Find an available child process or await until one becomes free
-    getAvailableChildProcess() {
+    getAvailableChildProcess = () => {
         return new Promise((resolve, reject) => {
             const availableChild = this.childProcessPool.find(child => !child.busy)
             if (availableChild) {
@@ -241,7 +241,7 @@ export class Server {
     }
 
     // When a child process finishes, mark it as free and check for queued requests
-    releaseChildProcess(child) {
+    releaseChildProcess = (child) => {
         child.busy = false
         if (this.pendingRequests.length > 0) {
             const nextRequest = this.pendingRequests.shift()
@@ -251,16 +251,16 @@ export class Server {
     }
 
     // Cleanups HTML content from ids
-    removeIds(html) {
+    removeIds = (html) => {
         return html.replace(/\s+id=["'][^"']*["']/g, '')
     }
 
     // Generates Etag based on HTML content
-    generateETag(content) {
+    generateETag = (content) => {
         return createHash('md5').update(content).digest('hex')
     }
 
-    async requestHandler(request, reply) {
+    requestHandler = async (request, reply) => {
         try {
             // Skip resource requests
             // should never go here in production
@@ -315,7 +315,7 @@ export class Server {
             // so let's get a child process to retrieve the content
             const child = await this.getAvailableChildProcess()
             // Method to work with child process
-            async function workWithChild(child, context) {
+            const workWithChild = async (child, context) => {
                 // Request the child to generate HTML for this route path
                 return new Promise((resolve) => {
                     // Listening for event from the child process
