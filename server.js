@@ -320,7 +320,7 @@ export class Server {
             // Method to work with child process
             const workWithChild = async (child, context) => {
                 // Request the child to generate HTML for this route path
-                return new Promise((resolve) => {
+                return new Promise((resolve, reject) => {
                     // Listening for event from the child process
                     child.once('message', async (event) => {
                         // Switching event type
