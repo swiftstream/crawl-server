@@ -179,9 +179,9 @@ export class Server {
             }
             if (!child.intentionally) {
                 const disasterCrash = ((new Date()).getMilliseconds() - child.spawnedAt < 5000)
-                const respawnTimeout = disasterCrash ? DISASTER_RESPAWN_TIMEOUT * 1000 : 1
+                const respawnTimeout = disasterCrash ? this.DISASTER_RESPAWN_TIMEOUT * 1000 : 1
                 if (disasterCrash) {
-                    const text = `Something went wrong with the wasm instance because it crashed too early. Respawning in ${DISASTER_RESPAWN_TIMEOUT}s.`
+                    const text = `Something went wrong with the wasm instance because it crashed too early. Respawning in ${this.DISASTER_RESPAWN_TIMEOUT}s.`
                     if (this.stateHandler) this.updateState({
                         state: 'failing',
                         situation: 'disasterly_crashed',
@@ -234,7 +234,7 @@ export class Server {
                 availableChild.busy = true
                 resolve(availableChild)
             } else {
-                if (this.pendingRequests.length >= MAX_PENDING_REQUESTS) {
+                if (this.pendingRequests.length >= this.MAX_PENDING_REQUESTS) {
                     reject('Too many requests in the queue.') // Protecting itself from leaking.
                 } else {
                     this.pendingRequests.push(resolve) // Queue the request if all children are busy
