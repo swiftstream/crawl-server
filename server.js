@@ -161,7 +161,7 @@ export class Server {
         child.spawnedAt = (new Date()).getMilliseconds()
         // Handle the exit event to replace dead processes
         child.on('exit', (code, signal) => {
-            if (this.logger) this.logger.log(`SERVER: Child process exited with code ${code} and signal ${signal}`)
+            if (this.logger && this.logger.log) this.logger.log(`SERVER: Child process exited with code ${code} and signal ${signal}`)
             // Remove the dead child from the pool
             const index = this.childProcessPool.indexOf(child)
             if (index > -1) {
@@ -169,7 +169,7 @@ export class Server {
             }
             if (signal === 'SIGTERM') {
                 const text = 'Stopped child process.'
-                if (this.logger) this.logger.log(`SERVER: ${text}`)
+                if (this.logger && this.logger.log) this.logger.log(`SERVER: ${text}`)
                 if (this.stateHandler) this.updateState({
                     state: 'stopping',
                     situation: 'stopped_child_process',
@@ -187,15 +187,15 @@ export class Server {
                         situation: 'disasterly_crashed',
                         description: text
                     })
-                    if (this.logger) this.logger.error(`SERVER: ${text}`)
+                    if (this.logger && this.logger.log) this.logger.error(`SERVER: ${text}`)
                 }
                 setTimeout(() => {
                     // Create a new child process to replace it
-                    if (this.logger) this.logger.log(`SERVER: Creating a new child process to replace it.`)
+                    if (this.logger && this.logger.log) this.logger.log(`SERVER: Creating a new child process to replace it.`)
                     try {
                         const newChild = this.createChildProcess()
                         const text = 'Replaced dead child process with a new one.'
-                        if (this.logger) this.logger.log(`SERVER: ${text}`)
+                        if (this.logger && this.logger.log) this.logger.log(`SERVER: ${text}`)
                         this.childProcessPool.push(newChild)
                         if (this.stateHandler) this.updateState({
                             state: 'operating',
@@ -208,7 +208,7 @@ export class Server {
                     }
                 }, respawnTimeout)
             } else {
-                if (this.logger) this.logger.log(`SERVER: Child process has been killed intentionally.`)
+                if (this.logger && this.logger.log) this.logger.log(`SERVER: Child process has been killed intentionally.`)
             }
         })
         return child
@@ -219,7 +219,7 @@ export class Server {
     killChildProcess = (child) => {
         setTimeout(() => {
             if (child && child.exitCode === null) { // Check if the child is alive
-                if (this.logger) this.logger.log(`SERVER: Killing child process with PID ${child.pid}`)
+                if (this.logger && this.logger.log) this.logger.log(`SERVER: Killing child process with PID ${child.pid}`)
                 child.intentionally = true
                 child.kill() // Send the default SIGTERM signal
             }
@@ -268,7 +268,7 @@ export class Server {
             // Skip resource requests
             // should never go here in production
             if (['ico', 'css', 'js', 'html', 'json'].includes(request.url.split('.').pop())) {
-                if (this.logger) this.logger.log(`SERVER: Skipping ${request.url} request`)
+                if (this.logger && this.logger.log) this.logger.log(`SERVER: Skipping ${request.url} request`)
                 // should be handled by nginx
                 return reply.code(404).send()
             }
@@ -332,7 +332,7 @@ export class Server {
                             // Kill the process with old instance and start fresh one
                             case 'restart':
                                 if (context.logger && context.logger.log) context.logger.log('SERVER: Got restart event')
-                                var starTime = context.logger ? (new Date()).getMilliseconds() : undefined
+                                var starTime = context.logger ? (new Date()).getMilliseconds() : 0
                                 // Kill child with previous wasm instance
                                 context.killChildProcess(child)
                                 if (context.logger && context.logger.log) context.logger.log(`SERVER: Killed child process in ${(new Date()).getMilliseconds() - starTime}ms`)
