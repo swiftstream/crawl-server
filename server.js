@@ -344,7 +344,7 @@ export class Server {
                                     newChild.busy = true
                                     context.childProcessPool.push(newChild)
                                     if (context.logger && context.logger.log) context.logger.log('SERVER: Replaced killed child process with a new one.')
-                                    resolve(await workWithChild(newChild))
+                                    resolve(await workWithChild(newChild, context))
                                 } catch (error) {
                                     reject(error)
                                 }
