@@ -45,6 +45,64 @@ export function loadDom(pathname, search, serverPort) {
     // Mock required parts
     global.window.alert = (args) => {}
     global.window.matchMedia = (query) => { return { onchange: () => {}, matches: true }}
+    const localStorageMock = (() => {
+        let store = {}
+        return {
+            getItem(key) {
+                return store[key] || null
+            },
+            setItem(key, value) {
+                store[key] = String(value)
+            },
+            removeItem(key) {
+                delete store[key]
+            },
+            clear() {
+                store = {}
+            },
+            key(index) {
+                const keys = Object.keys(store)
+                return keys[index] || null
+            },
+            get length() {
+                return Object.keys(store).length
+            }
+        }
+    })()
+    Object.defineProperty(global.window, 'localStorage', {
+        value: localStorageMock,
+        writable: true
+    })
+    global.localStorage = window.localStorage
+    const sessionStorageMock = (() => {
+        let store = {}
+        return {
+            getItem(key) {
+                return store[key] || null
+            },
+            setItem(key, value) {
+                store[key] = String(value)
+            },
+            removeItem(key) {
+                delete store[key]
+            },
+            clear() {
+                store = {}
+            },
+            key(index) {
+                const keys = Object.keys(store)
+                return keys[index] || null
+            },
+            get length() {
+                return Object.keys(store).length
+            }
+        }
+    })()
+    Object.defineProperty(global.window, 'sessionStorage', {
+        value: sessionStorageMock,
+        writable: true
+    })
+    global.sessionStorage = window.sessionStorage
     global.document = window.document
     global.history = {
         back: () => {},
