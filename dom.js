@@ -36,6 +36,7 @@ export function loadDom(pathname, search, serverPort) {
             runScripts: 'dangerously',
             resources: 'usable'
         })
+    global.isCrawlServer = true
     // Assign window
     global.window = dom.window
     // Fill required values
