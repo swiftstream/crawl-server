@@ -267,7 +267,7 @@ export class Server {
         try {
             // Skip resource requests
             // should never go here in production
-            if (['ico', 'css', 'js', 'html', 'json'].includes(request.url.split('.').pop())) {
+            if (['ico', 'css', 'js', 'html', 'json', 'png', 'jpg', 'jpeg', 'webp'].includes(request.url.split('.').pop())) {
                 if (this.logger && this.logger.log) this.logger.log(`SERVER: Skipping ${request.url} request`)
                 // should be handled by nginx
                 return reply.code(404).send()
